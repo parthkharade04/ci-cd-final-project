@@ -1,18 +1,27 @@
 apiVersion: tekton.dev/v1beta1
 kind: Task
 metadata:
+  name: cleanup
+spec:
+  steps:
+    - name: cleanup
+      image: alpine
+      script: |
+        # Cleanup step
+        rm -rf /workspace/source/*
+
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
   name: nose
 spec:
-  workspaces:
-    - name: source
-  params:
-    - name: args
-      description: Arguments to pass to nose
-      type: string
-      default: "-v"
   steps:
-    - name: nosetests
+    - name: nose-tests
       image: python:3.9-slim
-      workingDir: $(workspaces.source.path)
-      args:
-        - $(params.args)
+      script: |
+        # Install dependencies
+        pip install nose coverage
+        # Run the tests
+        nosetests -v --with-spec --spec-color --with-coverage --cover-package=app
