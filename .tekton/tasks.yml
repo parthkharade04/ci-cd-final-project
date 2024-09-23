@@ -3,12 +3,27 @@ kind: Task
 metadata:
   name: cleanup
 spec:
+  workspaces:
+    - name: source
   steps:
-    - name: cleanup
-      image: alpine
+    - name: remove
+      image: alpine:3
+      env:
+        - name: WORKSPACE_SOURCE_PATH
+          value: $(workspaces.source.path)
+      workingDir: $(workspaces.source.path)
+      securityContext:
+        runAsNonRoot: false
+        runAsUser: 0
       script: |
-        # Cleanup step
-        rm -rf /workspace/source/*
+        #!/usr/bin/env sh
+        set -eu
+        echo "Removing all files from ${WORKSPACE_SOURCE_PATH} ..."
+        if [ -d "${WORKSPACE_SOURCE_PATH}" ] ; then
+          rm -rf "${WORKSPACE_SOURCE_PATH:?}"/*
+          rm -rf "${WORKSPACE_SOURCE_PATH}"/.[!.]*
+          rm -rf "${WORKSPACE_SOURCE_PATH}"/..?*
+        fi
 
 ---
 
@@ -17,11 +32,20 @@ kind: Task
 metadata:
   name: nose
 spec:
+  workspaces:
+    - name: source
+  params:
+    - name: args
+      description: Arguments to pass to nose
+      type: string
+      default: "-v"
   steps:
-    - name: nose-tests
+    - name: nosetests
       image: python:3.9-slim
+      workingDir: $(workspaces.source.path)
       script: |
-        # Install dependencies
-        pip install nose coverage
-        # Run the tests
-        nosetests -v --with-spec --spec-color --with-coverage --cover-package=app
+        #!/bin/bash
+        set -e
+        python -m pip install --upgrade pip wheel
+        pip install -r requirements.txt
+        nosetests $(params.args)
